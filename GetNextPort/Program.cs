@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -11,8 +13,27 @@ namespace GetNextPort
         private static readonly int _threads = Environment.ProcessorCount;
         private static readonly Stopwatch _stopwatch = Stopwatch.StartNew();
 
+        private const ushort _maxPort = ushort.MaxValue;
+        private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _assignedPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort];
+        private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _bindingPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort];
+        private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _boundPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort];
+        private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _releasedPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort];
+
+        static Program()
+        {
+            for (var i=0; i < _maxPort; i++)
+            {
+                _assignedPorts[i] = new ConcurrentBag<(int Thread, TimeSpan Time)>();
+                _bindingPorts[i] = new ConcurrentBag<(int Thread, TimeSpan Time)>();
+                _boundPorts[i] = new ConcurrentBag<(int Thread, TimeSpan Time)>();
+                _releasedPorts[i] = new ConcurrentBag<(int Thread, TimeSpan Time)>();
+            }
+        }
+
         static void Main(string[] args)
         {
+            Console.WriteLine("Testing GetNextPort()...");
+
             var threads = new Thread[_threads];
             for (var i=0; i < _threads; i++)
             {
@@ -33,28 +54,36 @@ namespace GetNextPort
             }
         }
 
-        private static void TestPort(int id)
+        private static void TestPort(int thread)
         {
             var port = GetNextPort();
-
-            Console.WriteLine($"[{_stopwatch.Elapsed}] [{id}] Selected Port: {port}");
+            _assignedPorts[port].Add((thread, _stopwatch.Elapsed));
 
             using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
             {
                 try
                 {
-                    Console.WriteLine($"[{_stopwatch.Elapsed}] [{id}] Binding to: {port}");
+                    _bindingPorts[port].Add((thread, _stopwatch.Elapsed));
                     socket.Bind(new IPEndPoint(IPAddress.Loopback, port));
-                    Console.WriteLine($"[{_stopwatch.Elapsed}] [{id}] Bound to: {port}");
+                    _boundPorts[port].Add((thread, _stopwatch.Elapsed));
                 }
                 catch
                 {
-                    Console.WriteLine($"[{_stopwatch.Elapsed}] [{id}] Failure Binding: {port}");
+                    Console.WriteLine($"Failed binding to port {port}");
+                    Console.WriteLine();
+                    Console.WriteLine("Assignment:");
+                    Console.WriteLine(String.Join(Environment.NewLine, _assignedPorts[port].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
+                    Console.WriteLine("Binding:");
+                    Console.WriteLine(String.Join(Environment.NewLine, _bindingPorts[port].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
+                    Console.WriteLine("Bound:");
+                    Console.WriteLine(String.Join(Environment.NewLine, _boundPorts[port].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
+                    Console.WriteLine("Released:");
+                    Console.WriteLine(String.Join(Environment.NewLine, _releasedPorts[port].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
                     Environment.Exit(-1);
                 }
             }
 
-            Console.WriteLine($"[{_stopwatch.Elapsed}] [{id}] Released Port: {port}");
+            _releasedPorts[port].Add((thread, _stopwatch.Elapsed));
         }
 
         public static int GetNextPort()
