@@ -15,6 +15,7 @@ namespace GetNextPort
 
         private static readonly int _threads = Environment.ProcessorCount;
         private static readonly Stopwatch _stopwatch = Stopwatch.StartNew();
+        private static bool _debug;
 
         private static int _portsTested = 0;
         private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _assignedPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort + 1];
@@ -35,6 +36,8 @@ namespace GetNextPort
 
         static void Main(string[] args)
         {
+            _debug = args.Length > 0 && args[0] == "--debug";
+
             Console.WriteLine("Testing GetNextPort()...");
 
             var threads = new Thread[_threads];
@@ -66,13 +69,30 @@ namespace GetNextPort
             var port = GetNextPort();
             _assignedPorts[port].Add((thread, _stopwatch.Elapsed));
 
+            if (_debug)
+            {
+                Console.WriteLine($"[{thread}] Assigned: {port}");
+            }
+
             using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
             {
                 try
                 {
                     _bindingPorts[port].Add((thread, _stopwatch.Elapsed));
+
+                    if (_debug)
+                    {
+                        Console.WriteLine($"[{thread}] Binding: {port}");
+                    }
+
                     socket.Bind(new IPEndPoint(IPAddress.Loopback, port));
+
                     _boundPorts[port].Add((thread, _stopwatch.Elapsed));
+
+                    if (_debug)
+                    {
+                        Console.WriteLine($"[{thread}] Bound: {port}");
+                    }
                 }
                 catch
                 {
@@ -93,6 +113,11 @@ namespace GetNextPort
             }
 
             _releasedPorts[port].Add((thread, _stopwatch.Elapsed));
+
+            if (_debug)
+            {
+                Console.WriteLine($"[{thread}] Released: {port}");
+            }
 
             Interlocked.Increment(ref _portsTested);
         }
