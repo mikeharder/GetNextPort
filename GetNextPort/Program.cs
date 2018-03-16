@@ -16,6 +16,7 @@ namespace GetNextPort
         private static readonly int _threads = Environment.ProcessorCount;
         private static readonly Stopwatch _stopwatch = Stopwatch.StartNew();
         private static bool _debug;
+        private static int _skipPort;
 
         private static int _portsTested = 0;
         private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _assignedPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort + 1];
@@ -25,7 +26,7 @@ namespace GetNextPort
 
         static Program()
         {
-            for (var i=0; i < _assignedPorts.Length; i++)
+            for (var i = 0; i < _assignedPorts.Length; i++)
             {
                 _assignedPorts[i] = new ConcurrentBag<(int Thread, TimeSpan Time)>();
                 _bindingPorts[i] = new ConcurrentBag<(int Thread, TimeSpan Time)>();
@@ -38,10 +39,15 @@ namespace GetNextPort
         {
             _debug = args.Length > 0 && args[0] == "--debug";
 
+            if (args.Length > 0)
+            {
+                int.TryParse(args[0], out _skipPort);
+            }
+
             Console.WriteLine("Testing GetNextPort()...");
 
             var threads = new Thread[_threads];
-            for (var i=0; i < _threads; i++)
+            for (var i = 0; i < _threads; i++)
             {
                 var j = i;
                 threads[i] = new Thread(() =>
@@ -132,7 +138,17 @@ namespace GetNextPort
                 // a given port, and a new test is able to bind to the same port due to port
                 // reuse being enabled by default by the OS.
                 socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
-                return ((IPEndPoint)socket.LocalEndPoint).Port;
+
+                var port = ((IPEndPoint)socket.LocalEndPoint).Port;
+
+                if (port == _skipPort)
+                {
+                    return GetNextPort();
+                }
+                else
+                {
+                    return port;
+                }
             }
         }
     }
