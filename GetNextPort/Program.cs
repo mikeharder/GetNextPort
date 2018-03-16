@@ -71,7 +71,7 @@ namespace GetNextPort
 
             if (_debug)
             {
-                Console.WriteLine($"[{thread}] Assigned: {port}");
+                Console.WriteLine($"[{_stopwatch.Elapsed}] [{thread}] Assigned: {port}");
             }
 
             using (var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
@@ -82,7 +82,7 @@ namespace GetNextPort
 
                     if (_debug)
                     {
-                        Console.WriteLine($"[{thread}] Binding: {port}");
+                        Console.WriteLine($"[{_stopwatch.Elapsed}] [{thread}] Binding: {port}");
                     }
 
                     socket.Bind(new IPEndPoint(IPAddress.Loopback, port));
@@ -91,7 +91,7 @@ namespace GetNextPort
 
                     if (_debug)
                     {
-                        Console.WriteLine($"[{thread}] Bound: {port}");
+                        Console.WriteLine($"[{_stopwatch.Elapsed}] [{thread}] Bound: {port}");
                     }
                 }
                 catch
@@ -116,7 +116,7 @@ namespace GetNextPort
 
             if (_debug)
             {
-                Console.WriteLine($"[{thread}] Released: {port}");
+                Console.WriteLine($"[{_stopwatch.Elapsed}] [{thread}] Released: {port}");
             }
 
             Interlocked.Increment(ref _portsTested);
