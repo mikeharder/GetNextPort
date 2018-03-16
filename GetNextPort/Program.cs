@@ -14,10 +14,13 @@ namespace GetNextPort
         private static readonly Stopwatch _stopwatch = Stopwatch.StartNew();
 
         private const ushort _maxPort = ushort.MaxValue;
+
         private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _assignedPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort];
         private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _bindingPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort];
         private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _boundPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort];
         private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _releasedPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort];
+
+        private static int _portsTested = 0;
 
         static Program()
         {
@@ -48,9 +51,13 @@ namespace GetNextPort
                 threads[i].Start();
             }
 
-            foreach (var thread in threads)
+            using (var printStatusTimer = new Timer(s => Console.WriteLine($"[{_stopwatch.Elapsed}] Ports Tested: {_portsTested}"),
+                null, TimeSpan.Zero, TimeSpan.FromSeconds(1)))
             {
-                thread.Join();
+                foreach (var thread in threads)
+                {
+                    thread.Join();
+                }
             }
         }
 
@@ -84,6 +91,8 @@ namespace GetNextPort
             }
 
             _releasedPorts[port].Add((thread, _stopwatch.Elapsed));
+
+            Interlocked.Increment(ref _portsTested);
         }
 
         public static int GetNextPort()
