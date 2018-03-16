@@ -24,7 +24,7 @@ namespace GetNextPort
 
         static Program()
         {
-            for (var i=0; i < _maxPort; i++)
+            for (var i=0; i < _assignedPorts.Length; i++)
             {
                 _assignedPorts[i] = new ConcurrentBag<(int Thread, TimeSpan Time)>();
                 _bindingPorts[i] = new ConcurrentBag<(int Thread, TimeSpan Time)>();
