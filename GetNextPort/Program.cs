@@ -46,8 +46,6 @@ namespace GetNextPort
                 int.TryParse(args[0], out _skipPort);
             }
 
-            Console.WriteLine($"System.Net.Sockets Version: {typeof(Socket).Assembly.GetName().Version}");
-
             Console.WriteLine("Testing GetNextPort()...");
 
             var threads = new Thread[_threads];
