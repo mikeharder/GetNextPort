@@ -24,6 +24,8 @@ namespace GetNextPort
         private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _boundPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort + 1];
         private static readonly ConcurrentBag<(int Thread, TimeSpan Time)>[] _releasedPorts = new ConcurrentBag<(int Thread, TimeSpan Time)>[_maxPort + 1];
 
+        private static int _failedPort = -1;
+
         static Program()
         {
             for (var i = 0; i < _assignedPorts.Length; i++)
@@ -52,7 +54,7 @@ namespace GetNextPort
                 var j = i;
                 threads[i] = new Thread(() =>
                 {
-                    while (true)
+                    while (_failedPort == -1)
                     {
                         TestPort(j);
                     }
@@ -68,6 +70,19 @@ namespace GetNextPort
                     thread.Join();
                 }
             }
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"Failed binding to port {_failedPort}");
+            sb.AppendLine();
+            sb.AppendLine("Assignment:");
+            sb.AppendLine(String.Join(Environment.NewLine, _assignedPorts[_failedPort].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
+            sb.AppendLine("Binding:");
+            sb.AppendLine(String.Join(Environment.NewLine, _bindingPorts[_failedPort].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
+            sb.AppendLine("Bound:");
+            sb.AppendLine(String.Join(Environment.NewLine, _boundPorts[_failedPort].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
+            sb.AppendLine("Released:");
+            sb.AppendLine(String.Join(Environment.NewLine, _releasedPorts[_failedPort].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
+            Console.WriteLine(sb.ToString());
         }
 
         private static void TestPort(int thread)
@@ -102,19 +117,8 @@ namespace GetNextPort
                 }
                 catch
                 {
-                    var sb = new StringBuilder();
-                    sb.AppendLine($"Failed binding to port {port}");
-                    sb.AppendLine();
-                    sb.AppendLine("Assignment:");
-                    sb.AppendLine(String.Join(Environment.NewLine, _assignedPorts[port].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
-                    sb.AppendLine("Binding:");
-                    sb.AppendLine(String.Join(Environment.NewLine, _bindingPorts[port].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
-                    sb.AppendLine("Bound:");
-                    sb.AppendLine(String.Join(Environment.NewLine, _boundPorts[port].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
-                    sb.AppendLine("Released:");
-                    sb.AppendLine(String.Join(Environment.NewLine, _releasedPorts[port].OrderBy(p => p.Time).Select(p => $"[{p.Thread}] {p.Time}")));
-                    Console.WriteLine(sb.ToString());
-                    Environment.Exit(-1);
+                    _failedPort = port;
+                    return;
                 }
             }
 
